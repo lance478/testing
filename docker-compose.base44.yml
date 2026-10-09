@@ -1,0 +1,65 @@
+services:
+  db:
+    image: postgres:16
+    restart: on-failure
+    environment:
+      - POSTGRES_USER=kanban
+      - POSTGRES_PASSWORD=kanban
+      - POSTGRES_DB=kanban
+    volumes:
+      - dbdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U kanban"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  api:
+    image: node:22
+    restart: on-failure
+    working_dir: /app
+    volumes:
+      - ./server:/app
+      - api_modules:/app/node_modules
+    environment:
+      - DATABASE_URL=postgres://kanban:kanban@db:5432/kanban
+      - PORT=4000
+    command: ["sh", "-ec", "npm install --no-audit --no-fund && exec node --watch index.js"]
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:4000/api/cards').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 60s
+
+  web:
+    image: node:22
+    restart: on-failure
+    working_dir: /app
+    volumes:
+      - ./client:/app
+      - web_modules:/app/node_modules
+    environment:
+      - __VITE_ADDITIONAL_SERVER_ALLOWED_HOSTS
+      - BASE44_PREVIEW_MODE
+      - CHOKIDAR_USEPOLLING=true
+    command: ["sh", "-ec", "npm install --no-audit --no-fund && exec npx vite --host 0.0.0.0 --port 5173"]
+    ports:
+      - "3000:5173"
+    depends_on:
+      api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:5173/').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 60s
+
+volumes:
+  dbdata:
+  api_modules:
+  web_modules:

@@ -1,0 +1,10 @@
+{
+  "name": "kanban-server",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "express": "^4.21.0",
+    "pg": "^8.13.0",
+    "ws": "^8.18.0"
+  }
+}
